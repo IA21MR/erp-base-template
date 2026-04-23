@@ -1,77 +1,17 @@
 /**
- * Configuración centralizada del menú de navegación
+ * Configuración del menú de navegación.
  *
- * - Cada módulo se registra aquí
- * - Fácil de extender
- * - Iconos de Lucide React
- * - Soporte para submenús (futuro)
+ * Los ítems ya NO se declaran aquí. Cada módulo los declara en su
+ * manifest (`web/src/shared/plugin-system/manifests.ts`), y aquí solo
+ * se concatenan los de los módulos activos.
  */
+import { buildActiveMenu } from '@/shared/plugin-system';
+import type { FrontendMenuItem } from '@/shared/plugin-system';
 
-import {
-  LayoutDashboard,
-  UserCog,
-  Shield,
-  Building2,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+export type MenuItem = FrontendMenuItem;
 
-export interface MenuItem {
-  id: string;
-  label: string;
-  href: string;
-  icon: LucideIcon;
-  // Permiso requerido para mostrar el ítem
-  permission?: string;
-  // Si el usuario TIENE este permiso, ocultar el ítem (usado para fallbacks)
-  hideIfPermission?: string;
-  // Submenú (futuro)
-  children?: MenuItem[];
-}
+/** Menú principal — derivado de manifests de módulos activos. */
+export const mainMenu: MenuItem[] = buildActiveMenu();
 
-/**
- * Menú principal del dashboard
- * Agregar nuevos módulos aquí
- */
-export const mainMenu: MenuItem[] = [
-  {
-    id: 'dashboard',
-    label: 'Inicio',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    id: 'organizations',
-    label: 'Organizaciones',
-    href: '/organizations',
-    icon: Building2,
-    permission: 'READ_ORGANIZATION',
-  },
-  {
-    id: 'contacts',
-    label: 'Contactos',
-    href: '/contacts',
-    icon: Users,
-    permission: 'READ_CONTACT',
-  },
-  {
-    id: 'users',
-    label: 'Usuarios',
-    href: '/users',
-    icon: UserCog,
-    permission: 'LIST_USERS',
-  },
-  {
-    id: 'roles',
-    label: 'Roles',
-    href: '/roles',
-    icon: Shield,
-    permission: 'READ_ROLE',
-    hideIfPermission: 'LIST_USERS',
-  },
-];
-
-/**
- * Menú secundario (configuración, perfil, etc.)
- */
+/** Menú secundario (configuración, perfil, etc.) */
 export const secondaryMenu: MenuItem[] = [];
