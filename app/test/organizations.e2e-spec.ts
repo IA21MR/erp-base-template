@@ -38,7 +38,7 @@ describe('Organizations E2E Tests', () => {
 
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@sistema.com', password: 'admin123' });
+      .send({ email: 'admin@sotek.com', password: 'admin123' });
 
     if (loginResponse.status !== 200) {
       throw new Error(`Login failed: ${JSON.stringify(loginResponse.body)}`);

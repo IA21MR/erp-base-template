@@ -32,7 +32,7 @@ describe('Permissions E2E Tests', () => {
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
       .send({
-        email: 'emailActualizado@sotek.com',
+        email: 'admin@sotek.com',
         password: 'admin123',
       })
       .expect(200);
