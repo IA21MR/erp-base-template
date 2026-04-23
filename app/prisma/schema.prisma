@@ -1,0 +1,365 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int                   @id @default(autoincrement())
+  organizationId      String                @map("organization_id") @db.Uuid
+  name                String                @db.VarChar(100)
+  email               String                @unique @db.VarChar(150)
+  passwordHash        String                @map("password_hash") @db.VarChar(255)
+  active              Boolean               @default(true)
+  failedLoginAttempts Int                   @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?             @map("locked_until")
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  passwordResetCodes  PasswordResetCode[]
+  refreshTokens       RefreshToken[]
+  userRoles           UserRole[]
+
+  @@index([organizationId])
+  @@map("user")
+}
+
+model Role {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique @db.VarChar(50)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("role")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  code            String           @unique @db.VarChar(100)
+  description     String?          @db.VarChar(255)
+  rolePermissions RolePermission[]
+
+  @@map("permission")
+}
+
+model UserRole {
+  userId Int  @map("user_id")
+  roleId Int  @map("role_id")
+  role   Role @relation(fields: [roleId], references: [id])
+  user   User @relation(fields: [userId], references: [id])
+
+  @@id([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_role")
+}
+
+model RolePermission {
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permission")
+}
+
+model PasswordResetCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  code      String   @db.VarChar(6)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, code])
+  @@map("password_reset_code")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_token")
+}
+
+// =====================================================================
+// CORE: Outbox Pattern — persistencia de Domain Events
+// =====================================================================
+
+model OutboxEvent {
+  id             String    @id @db.Uuid
+  aggregateId    String    @map("aggregate_id")
+  aggregateType  String    @map("aggregate_type") @db.VarChar(100)
+  eventType      String    @map("event_type") @db.VarChar(150)
+  eventVersion   Int       @default(1) @map("event_version")
+  payload        Json
+  occurredAt     DateTime  @default(now()) @map("occurred_at")
+  processedAt    DateTime? @map("processed_at")
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+
+  @@index([processedAt, occurredAt])
+  @@index([aggregateId, aggregateType])
+  @@map("outbox_event")
+}
+
+// =====================================================================
+// CORE: Organization aggregate
+// =====================================================================
+
+model Organization {
+  id                String                        @id @db.Uuid
+  legalName         String                        @map("legal_name") @db.VarChar(150)
+  tradeName         String?                       @map("trade_name") @db.VarChar(150)
+  taxId             String?                       @map("tax_id") @db.VarChar(30)
+  countryCode       String                        @map("country_code") @db.VarChar(2)
+  email             String?                       @db.VarChar(255)
+  phone             String?                       @db.VarChar(30)
+  website           String?                       @db.VarChar(500)
+  active            Boolean                       @default(true)
+  isPrimary         Boolean                       @default(false) @map("is_primary")
+  createdByUserId   Int                           @map("created_by_user_id")
+  updatedByUserId   Int                           @map("updated_by_user_id")
+  createdAt         DateTime                      @default(now()) @map("created_at")
+  updatedAt         DateTime                      @updatedAt @map("updated_at")
+
+  addresses         OrganizationAddress[]
+  settings          OrganizationSettings?
+  contacts          Contact[]
+  modules           OrganizationModule[]
+  users             User[]
+
+  @@unique([taxId, countryCode])
+  @@index([active])
+  @@index([isPrimary])
+  @@map("organization")
+}
+
+// =====================================================================
+// CORE: Plugin Engine — módulos habilitados por organización
+// =====================================================================
+
+model OrganizationModule {
+  id             String       @id @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  moduleName     String       @map("module_name") @db.VarChar(100)
+  enabled        Boolean      @default(true)
+  enabledAt      DateTime     @default(now()) @map("enabled_at")
+  disabledAt    DateTime?    @map("disabled_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, moduleName])
+  @@index([organizationId])
+  @@index([moduleName])
+  @@map("organization_module")
+}
+
+model OrganizationAddress {
+  id             String       @id @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  street         String       @db.VarChar(255)
+  city           String       @db.VarChar(100)
+  region         String?      @db.VarChar(100)
+  postalCode     String?      @map("postal_code") @db.VarChar(20)
+  countryCode    String       @map("country_code") @db.VarChar(2)
+  label          String?      @db.VarChar(50)
+  isPrimary      Boolean      @default(false) @map("is_primary")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_address")
+}
+
+model OrganizationSettings {
+  organizationId String                              @id @map("organization_id") @db.Uuid
+  createdAt      DateTime                            @default(now()) @map("created_at")
+  updatedAt      DateTime                            @updatedAt @map("updated_at")
+
+  organization   Organization                        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  regional       OrganizationRegionalSettings?
+  fiscal         OrganizationFiscalSettings?
+  notifications  OrganizationNotificationSettings?
+  branding       OrganizationBrandingSettings?
+
+  @@map("organization_settings")
+}
+
+model OrganizationRegionalSettings {
+  organizationId String               @id @map("organization_id") @db.Uuid
+  timezone       String               @db.VarChar(60)
+  locale         String               @db.VarChar(10)
+  currency       String               @db.VarChar(3)
+  dateFormat     String               @default("DD/MM/YYYY") @map("date_format") @db.VarChar(20)
+  numberFormat   String               @default("1.234,56") @map("number_format") @db.VarChar(20)
+  weekStart      Int                  @default(1) @map("week_start")
+  timeFormat     String               @default("HH:mm") @map("time_format") @db.VarChar(20)
+
+  settings       OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_regional_settings")
+}
+
+model OrganizationFiscalSettings {
+  organizationId       String               @id @map("organization_id") @db.Uuid
+  fiscalYearStartMonth Int                  @default(1) @map("fiscal_year_start_month")
+  taxRegime            String?              @map("tax_regime") @db.VarChar(100)
+  economicActivity     String?              @map("economic_activity") @db.VarChar(200)
+  notes                String?
+
+  settings             OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_fiscal_settings")
+}
+
+model OrganizationNotificationSettings {
+  organizationId String               @id @map("organization_id") @db.Uuid
+  emailFromName  String?              @map("email_from_name") @db.VarChar(100)
+  emailReplyTo   String?              @map("email_reply_to") @db.VarChar(255)
+  enableEmail    Boolean              @default(true) @map("enable_email")
+  smsEnabled     Boolean              @default(false) @map("sms_enabled")
+
+  settings       OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_notification_settings")
+}
+
+model OrganizationBrandingSettings {
+  organizationId String               @id @map("organization_id") @db.Uuid
+  primaryColor   String?              @map("primary_color") @db.VarChar(20)
+  secondaryColor String?              @map("secondary_color") @db.VarChar(20)
+  logoUrl        String?              @map("logo_url") @db.VarChar(500)
+  faviconUrl     String?              @map("favicon_url") @db.VarChar(500)
+
+  settings       OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_branding_settings")
+}
+
+// =====================================================================
+// CORE: Contact aggregate
+// =====================================================================
+
+enum ContactTypeEnum {
+  PERSON
+  COMPANY
+
+  @@map("contact_type")
+}
+
+model ContactRoleType {
+  id       String        @id @db.Uuid
+  code     String        @unique @db.VarChar(50)
+  label    String        @db.VarChar(100)
+  isSystem Boolean       @default(false) @map("is_system")
+
+  roles    ContactRole[]
+
+  @@map("contact_role_type")
+}
+
+model Contact {
+  id                 String            @id @db.Uuid
+  organizationId     String            @map("organization_id") @db.Uuid
+  type               ContactTypeEnum
+  personFirstName    String?           @map("person_first_name") @db.VarChar(100)
+  personLastName     String?           @map("person_last_name") @db.VarChar(100)
+  companyLegalName   String?           @map("company_legal_name") @db.VarChar(150)
+  companyTradeName   String?           @map("company_trade_name") @db.VarChar(150)
+  taxId              String?           @map("tax_id") @db.VarChar(30)
+  countryCode        String?           @map("country_code") @db.VarChar(2)
+  notes              String?
+  userId             Int?              @map("user_id")
+  active             Boolean           @default(true)
+  createdByUserId    Int               @map("created_by_user_id")
+  updatedByUserId    Int               @map("updated_by_user_id")
+  assignedToUserId   Int?              @map("assigned_to_user_id")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  roles              ContactRole[]
+  emails             ContactEmail[]
+  phones             ContactPhone[]
+  addresses          ContactAddress[]
+
+  @@unique([organizationId, countryCode, taxId])
+  @@index([organizationId, type, active])
+  @@index([assignedToUserId])
+  @@index([createdByUserId])
+  @@map("contact")
+}
+
+model ContactRole {
+  id         String          @id @db.Uuid
+  contactId  String          @map("contact_id") @db.Uuid
+  roleTypeId String          @map("role_type_id") @db.Uuid
+  since      DateTime?       @db.Date
+  until      DateTime?       @db.Date
+
+  contact    Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  roleType   ContactRoleType @relation(fields: [roleTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([contactId, roleTypeId])
+  @@index([contactId])
+  @@index([roleTypeId])
+  @@map("contact_role")
+}
+
+model ContactEmail {
+  id        String  @id @db.Uuid
+  contactId String  @map("contact_id") @db.Uuid
+  email     String  @db.VarChar(255)
+  label     String? @db.VarChar(50)
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([email])
+  @@map("contact_email")
+}
+
+model ContactPhone {
+  id        String  @id @db.Uuid
+  contactId String  @map("contact_id") @db.Uuid
+  phone     String  @db.VarChar(30)
+  label     String? @db.VarChar(50)
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("contact_phone")
+}
+
+model ContactAddress {
+  id          String  @id @db.Uuid
+  contactId   String  @map("contact_id") @db.Uuid
+  street      String  @db.VarChar(255)
+  city        String  @db.VarChar(100)
+  region      String? @db.VarChar(100)
+  postalCode  String? @map("postal_code") @db.VarChar(20)
+  countryCode String  @map("country_code") @db.VarChar(2)
+  label       String? @db.VarChar(50)
+  isPrimary   Boolean @default(false) @map("is_primary")
+
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("contact_address")
+}

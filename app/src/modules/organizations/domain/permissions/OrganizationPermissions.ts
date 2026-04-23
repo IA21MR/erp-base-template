@@ -1,0 +1,12 @@
+/**
+ * Constantes de permisos del módulo Organizations (sin strings mágicos).
+ */
+export const OrganizationPermissions = {
+  CREATE: 'CREATE_ORGANIZATION',
+  READ: 'READ_ORGANIZATION',
+  UPDATE: 'UPDATE_ORGANIZATION',
+  ACTIVATE: 'ACTIVATE_ORGANIZATION',
+  DEACTIVATE: 'DEACTIVATE_ORGANIZATION',
+  MANAGE_SETTINGS: 'MANAGE_ORGANIZATION_SETTINGS',
+  SET_PRIMARY: 'SET_PRIMARY_ORGANIZATION',
+} as const;
