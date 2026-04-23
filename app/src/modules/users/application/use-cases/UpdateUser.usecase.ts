@@ -24,7 +24,7 @@ export class UpdateUserUseCase {
     userId: number,
     command: UpdateUserCommand,
     _updatedBy: number,
-    callerOrganizationId?: string,
+    callerTenantId?: string | null,
   ): Promise<User> {
     // Buscar usuario
     const user = await this.userRepository.findById(userId);
@@ -33,7 +33,7 @@ export class UpdateUserUseCase {
     }
 
     // Guardia multi-tenant
-    if (callerOrganizationId && !user.belongsToOrganization(callerOrganizationId)) {
+    if (callerTenantId && !user.belongsToTenant(callerTenantId)) {
       throw new UserNotFoundException(userId);
     }
 

@@ -20,9 +20,11 @@ datasource db {
 
 model User {
   id                  Int                 @id @default(autoincrement())
-  // #gen-if(organizations)
-  organizationId      String              @map("organization_id") @db.Uuid
-  // #gen-endif
+  // `organizationId` representa el `tenantId` multi-tenant. La columna está
+  // siempre presente (nullable) para evitar divergencia de schema entre
+  // proyectos con/sin el módulo `organizations`. La FK + relación solo se
+  // materializan si `organizations` está activo.
+  organizationId      String?             @map("organization_id") @db.Uuid
   name                String              @db.VarChar(100)
   email               String              @unique @db.VarChar(150)
   passwordHash        String              @map("password_hash") @db.VarChar(255)
@@ -30,15 +32,13 @@ model User {
   failedLoginAttempts Int                 @default(0) @map("failed_login_attempts")
   lockedUntil         DateTime?           @map("locked_until")
   // #gen-if(organizations)
-  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization        Organization?       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   // #gen-endif
   passwordResetCodes  PasswordResetCode[]
   refreshTokens       RefreshToken[]
   userRoles           UserRole[]
 
-  // #gen-if(organizations)
   @@index([organizationId])
-  // #gen-endif
   @@map("user")
 }
 

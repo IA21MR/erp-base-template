@@ -11,6 +11,6 @@ export class SearchUsersCommand {
     public readonly roleId?: number, // Filtrar por rol específico
     public readonly page?: number, // Número de página
     public readonly perPage?: number, // Elementos por página
-    public readonly organizationId?: string, // Filtro multi-tenant (derivado del JWT)
+    public readonly tenantId?: string | null, // Filtro multi-tenant (opcional)
   ) {}
 }

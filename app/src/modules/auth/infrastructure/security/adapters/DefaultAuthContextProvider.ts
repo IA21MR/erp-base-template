@@ -25,7 +25,7 @@ export class DefaultAuthContextProvider implements AuthContextProvider {
 
   async resolveOrganizationIdForUser(userId: number): Promise<string | null> {
     const user = await this.userRepository.findById(userId);
-    return user ? user.organizationId.value : null;
+    return user ? user.tenantId?.value ?? null : null;
   }
 
   async resolveRoleNamesForUser(userId: number): Promise<string[]> {

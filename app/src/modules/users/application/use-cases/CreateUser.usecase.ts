@@ -1,15 +1,17 @@
 // Caso de uso: Crear Usuario (RF-U1)
-// Requiere contexto multi-tenant: el nuevo usuario se crea dentro
-// de una organización existente (la del administrador autenticado).
+//
+// Multi-tenant: el `tenantId` viene del contexto del admin autenticado (JWT).
+// Este use-case NO importa nada del módulo `organizations`: la existencia del
+// tenant queda garantizada por:
+//   - el JWT (`OrganizationContextGuard` ya validó el tenant al emitirlo), y
+//   - el FK de Prisma (cuando `organizations` está activo).
+// En proyectos core-only `tenantId` es `null` y el FK no existe.
 
 import { Inject, Injectable } from '@nestjs/common';
 import { User } from '../../domain/entities/User.entity';
 import { Password } from '../../domain/value-objects/Password.vo';
 import type { UserRepository } from '../../domain/repositories/UserRepository.interface';
 import type { RoleRepository } from '../../domain/repositories/RoleRepository.interface';
-import type { OrganizationRepository } from '../../../organizations/domain/repositories/OrganizationRepository.interface';
-import { OrganizationId } from '../../../organizations/domain/value-objects/OrganizationId.vo';
-import { OrganizationNotFoundException } from '../../../organizations/domain/exceptions';
 import { CreateUserCommand } from '../commands/CreateUserCommand';
 import {
   DuplicateEmailException,
@@ -17,7 +19,6 @@ import {
   RoleNotFoundException,
 } from '../../domain/exceptions';
 import { USER_REPOSITORY, ROLE_REPOSITORY } from '../../Users.Tokens';
-import { ORGANIZATION_REPOSITORY } from '../../../organizations/Organizations.Tokens';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -27,23 +28,9 @@ export class CreateUserUseCase {
     private readonly userRepository: UserRepository,
     @Inject(ROLE_REPOSITORY)
     private readonly roleRepository: RoleRepository,
-    @Inject(ORGANIZATION_REPOSITORY)
-    private readonly organizationRepository: OrganizationRepository,
   ) {}
 
   async execute(command: CreateUserCommand, _createdBy: number): Promise<User> {
-    // Validar organizationId (VO tipado — evita strings mágicos)
-    if (!command.organizationId) {
-      throw new InvalidUserDataException('organizationId es requerido');
-    }
-    const organizationId = OrganizationId.create(command.organizationId);
-
-    // Verificar que la organización exista
-    const organization = await this.organizationRepository.findById(organizationId);
-    if (!organization) {
-      throw new OrganizationNotFoundException(organizationId.value);
-    }
-
     // Validar que el email no exista
     const existingUser = await this.userRepository.findByEmail(command.email);
     if (existingUser) {
@@ -69,10 +56,10 @@ export class CreateUserUseCase {
     // Hashear contraseña
     const passwordHash = await bcrypt.hash(password.toString(), 10);
 
-    // Crear usuario (el VO OrganizationId garantiza invariante de tenencia)
+    // Crear usuario (tenantId puede ser null en proyectos core-only)
     const user = User.create(
       0, // ID temporal, se asignará en la BD
-      organizationId,
+      command.tenantId ?? null,
       command.name,
       command.email,
       passwordHash,

@@ -16,8 +16,8 @@ export interface UserRepository {
   // Buscar todos los usuarios
   findAll(): Promise<User[]>;
 
-  // Listar usuarios con paginación (opcionalmente filtrados por organización — multi-tenant)
-  listPaginated(page: number, perPage: number, organizationId?: string): Promise<{
+  // Listar usuarios con paginación (opcionalmente filtrados por tenant — multi-tenant)
+  listPaginated(page: number, perPage: number, tenantId?: string | null): Promise<{
     items: User[];
     total: number;
   }>;
@@ -29,7 +29,7 @@ export interface UserRepository {
     roleId?: number, // Filtrar por rol
     page?: number, // Número de página
     perPage?: number, // Elementos por página
-    organizationId?: string, // Filtro multi-tenant (opcional)
+    tenantId?: string | null, // Filtro multi-tenant (opcional)
   ): Promise<{
     items: User[];
     total: number;

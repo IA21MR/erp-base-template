@@ -1,9 +1,16 @@
 // Entidad de dominio Usuario
 // Representa un usuario del sistema con sus reglas de negocio.
-// Invariante multi-tenant: todo usuario pertenece a exactamente una organización.
+//
+// Multi-tenant: `tenantId` es OPCIONAL desde el punto de vista del dominio
+// core. Proyectos con el módulo `organizations` lo proveen siempre (enforced
+// por `OrganizationContextGuard`). Proyectos core-only lo dejan `null`.
+//
+// Este módulo NO importa nada de `modules/organizations`: el concepto de
+// tenant vive en `shared/domain/tenant` y `organizations` es un *provider*
+// de ese contexto.
 
 import { Email } from '../value-objects/Email.vo';
-import { OrganizationId } from '../../../organizations/domain/value-objects/OrganizationId.vo';
+import { TenantId } from '../../../../shared/domain/tenant/TenantId.vo';
 import { UserAlreadyActiveException } from '../exceptions/UserAlreadyActiveException';
 import { UserAlreadyInactiveException } from '../exceptions/UserAlreadyInactiveException';
 import { InvalidUserDataException } from '../exceptions/InvalidUserDataException';
@@ -16,11 +23,11 @@ export class User {
   private _roleIds: number[];
   private _failedLoginAttempts: number;
   private _lockedUntil: Date | null;
-  private readonly _organizationId: OrganizationId;
+  private readonly _tenantId: TenantId | null;
 
   constructor(
     public readonly id: number,
-    organizationId: OrganizationId,
+    tenantId: TenantId | null,
     name: string,
     email: Email,
     passwordHash: string,
@@ -29,11 +36,7 @@ export class User {
     failedLoginAttempts: number = 0,
     lockedUntil: Date | null = null,
   ) {
-    // Invariante multi-tenant: organizationId es obligatorio.
-    if (!organizationId) {
-      throw new InvalidUserDataException('El usuario debe pertenecer a una organización');
-    }
-    this._organizationId = organizationId;
+    this._tenantId = tenantId;
     this._name = name;
     this._email = email;
     this._passwordHash = passwordHash;
@@ -50,13 +53,13 @@ export class User {
   get roleIds(): number[] { return [...this._roleIds]; }
   get failedLoginAttempts(): number { return this._failedLoginAttempts; }
   get lockedUntil(): Date | null { return this._lockedUntil; }
-  get organizationId(): OrganizationId { return this._organizationId; }
+  get tenantId(): TenantId | null { return this._tenantId; }
 
   // Factory method para crear/rehidratar un usuario.
-  // `organizationId` acepta string (UUID) o el VO tipado.
+  // `tenantId` acepta string (UUID), VO tipado, o null (single-tenant).
   static create(
     id: number,
-    organizationId: string | OrganizationId,
+    tenantId: string | TenantId | null,
     name: string,
     email: string,
     passwordHash: string,
@@ -65,14 +68,18 @@ export class User {
     failedLoginAttempts: number = 0,
     lockedUntil: Date | null = null,
   ): User {
-    const orgId =
-      organizationId instanceof OrganizationId
-        ? organizationId
-        : OrganizationId.create(organizationId);
+    let tid: TenantId | null;
+    if (tenantId === null || tenantId === undefined) {
+      tid = null;
+    } else if (tenantId instanceof TenantId) {
+      tid = tenantId;
+    } else {
+      tid = TenantId.create(tenantId);
+    }
 
     return new User(
       id,
-      orgId,
+      tid,
       name,
       Email.create(email),
       passwordHash,
@@ -154,19 +161,21 @@ export class User {
     this._lockedUntil = null;
   }
 
-  // Regla multi-tenant: verificar pertenencia a una organización
-  belongsToOrganization(organizationId: OrganizationId | string): boolean {
-    const other =
-      organizationId instanceof OrganizationId
-        ? organizationId
-        : OrganizationId.create(organizationId);
-    return this._organizationId.equals(other);
+  /**
+   * Regla multi-tenant: verifica pertenencia a un tenant.
+   * - Si el usuario no tiene tenant (single-tenant), acepta cualquier contexto.
+   * - Si el caller no provee tenant, no hay restricción que validar.
+   */
+  belongsToTenant(tenantId: TenantId | string | null | undefined): boolean {
+    if (!tenantId || !this._tenantId) return true;
+    const other = tenantId instanceof TenantId ? tenantId : TenantId.create(tenantId);
+    return this._tenantId.equals(other);
   }
 
   // Convertir a objeto plano para persistencia
   toPrimitives(): {
     id: number;
-    organizationId: string;
+    tenantId: string | null;
     name: string;
     email: string;
     passwordHash: string;
@@ -175,7 +184,7 @@ export class User {
   } {
     return {
       id: this.id,
-      organizationId: this._organizationId.value,
+      tenantId: this._tenantId?.value ?? null,
       name: this._name,
       email: this._email.value,
       passwordHash: this._passwordHash,

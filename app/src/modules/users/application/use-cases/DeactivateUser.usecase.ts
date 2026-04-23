@@ -24,7 +24,7 @@ export class DeactivateUserUseCase {
   async execute(
     userId: number,
     deactivatedBy: number,
-    callerOrganizationId?: string,
+    callerTenantId?: string | null,
   ): Promise<User> {
     // Validar que no se desactive a sí mismo
     if (userId === deactivatedBy) {
@@ -38,7 +38,7 @@ export class DeactivateUserUseCase {
     }
 
     // Guardia multi-tenant
-    if (callerOrganizationId && !user.belongsToOrganization(callerOrganizationId)) {
+    if (callerTenantId && !user.belongsToTenant(callerTenantId)) {
       throw new UserNotFoundException(userId);
     }
 

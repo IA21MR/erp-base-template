@@ -25,7 +25,7 @@ export class AssignRolesUseCase {
   async execute(
     command: AssignRolesCommand,
     assignedBy: number,
-    callerOrganizationId?: string,
+    callerTenantId?: string | null,
   ): Promise<User> {
     // Buscar usuario
     const user = await this.userRepository.findById(command.userId);
@@ -34,7 +34,7 @@ export class AssignRolesUseCase {
     }
 
     // Guardia multi-tenant
-    if (callerOrganizationId && !user.belongsToOrganization(callerOrganizationId)) {
+    if (callerTenantId && !user.belongsToTenant(callerTenantId)) {
       throw new UserNotFoundException(command.userId);
     }
 

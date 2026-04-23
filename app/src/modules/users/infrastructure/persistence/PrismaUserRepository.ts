@@ -1,5 +1,9 @@
 // Implementación del repositorio de Usuario usando Prisma
-// Adaptador de infraestructura que implementa el puerto del dominio
+// Adaptador de infraestructura que implementa el puerto del dominio.
+//
+// Multi-tenant: la columna `organizationId` en DB representa el `tenantId`
+// del agregado. La entidad de dominio NO conoce el módulo `organizations`;
+// usa el VO `TenantId` (shared/domain).
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../infrastructure/database/prisma/prisma.service';
@@ -14,7 +18,7 @@ export class PrismaUserRepository implements UserRepository {
   async create(user: User): Promise<User> {
     const created = await this.prisma.user.create({
       data: {
-        organizationId: user.organizationId.value,
+        organizationId: user.tenantId?.value ?? null,
         name: user.name,
         email: user.email.value,
         passwordHash: user.passwordHash,
@@ -36,9 +40,7 @@ export class PrismaUserRepository implements UserRepository {
   async findById(id: number): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: {
-        userRoles: true,
-      },
+      include: { userRoles: true },
     });
 
     if (!user) return null;
@@ -61,9 +63,7 @@ export class PrismaUserRepository implements UserRepository {
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: {
-        userRoles: true,
-      },
+      include: { userRoles: true },
     });
 
     if (!user) return null;
@@ -85,9 +85,7 @@ export class PrismaUserRepository implements UserRepository {
 
   async findAll(): Promise<User[]> {
     const users = await this.prisma.user.findMany({
-      include: {
-        userRoles: true,
-      },
+      include: { userRoles: true },
     });
 
     return users.map((user) => {
@@ -107,20 +105,18 @@ export class PrismaUserRepository implements UserRepository {
   async listPaginated(
     page: number,
     perPage: number,
-    organizationId?: string,
+    tenantId?: string | null,
   ): Promise<{ items: User[]; total: number }> {
     const skip = calculateSkip(page, perPage);
-    // Filtro multi-tenant: si viene organizationId, se restringe al tenant del caller.
-    const where = organizationId ? { organizationId } : undefined;
+    // Filtro multi-tenant: si viene tenantId, se restringe al tenant del caller.
+    const where = tenantId ? { organizationId: tenantId } : undefined;
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
         skip,
         take: perPage,
-        include: {
-          userRoles: true,
-        },
+        include: { userRoles: true },
         orderBy: { name: 'asc' },
       }),
       this.prisma.user.count({ where }),
@@ -148,24 +144,19 @@ export class PrismaUserRepository implements UserRepository {
     roleId?: number,
     page: number = 1,
     perPage: number = 30,
-    organizationId?: string,
-  ): Promise<{
-    items: User[];
-    total: number;
-  }> {
+    tenantId?: string | null,
+  ): Promise<{ items: User[]; total: number }> {
     const where: any = {};
 
     // Filtro multi-tenant
-    if (organizationId) {
-      where.organizationId = organizationId;
+    if (tenantId) {
+      where.organizationId = tenantId;
     }
 
-    // Filtro por estado activo/inactivo
     if (active !== undefined) {
       where.active = active;
     }
 
-    // Filtro por búsqueda en nombre o email
     if (query) {
       where.OR = [
         { name: { contains: query, mode: 'insensitive' } },
@@ -173,13 +164,8 @@ export class PrismaUserRepository implements UserRepository {
       ];
     }
 
-    // Filtro por rol
     if (roleId) {
-      where.userRoles = {
-        some: {
-          roleId: roleId,
-        },
-      };
+      where.userRoles = { some: { roleId } };
     }
 
     const skip = calculateSkip(page, perPage);
@@ -189,12 +175,8 @@ export class PrismaUserRepository implements UserRepository {
         where,
         skip,
         take: perPage,
-        include: {
-          userRoles: true,
-        },
-        orderBy: {
-          name: 'asc',
-        },
+        include: { userRoles: true },
+        orderBy: { name: 'asc' },
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -224,9 +206,7 @@ export class PrismaUserRepository implements UserRepository {
         passwordHash: user.passwordHash,
         active: user.active,
       },
-      include: {
-        userRoles: true,
-      },
+      include: { userRoles: true },
     });
 
     const roleIds = updated.userRoles.map((ur) => ur.roleId);
@@ -243,40 +223,25 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async existsByEmail(email: string): Promise<boolean> {
-    const count = await this.prisma.user.count({
-      where: { email },
-    });
+    const count = await this.prisma.user.count({ where: { email } });
     return count > 0;
   }
 
   async assignRoles(userId: number, roleIds: number[]): Promise<void> {
-    // Eliminar roles existentes
-    await this.prisma.userRole.deleteMany({
-      where: { userId },
-    });
-
-    // Asignar nuevos roles
+    await this.prisma.userRole.deleteMany({ where: { userId } });
     await this.prisma.userRole.createMany({
-      data: roleIds.map((roleId) => ({
-        userId,
-        roleId,
-      })),
+      data: roleIds.map((roleId) => ({ userId, roleId })),
     });
   }
 
   async removeRoles(userId: number, roleIds: number[]): Promise<void> {
     await this.prisma.userRole.deleteMany({
-      where: {
-        userId,
-        roleId: { in: roleIds },
-      },
+      where: { userId, roleId: { in: roleIds } },
     });
   }
 
   async getUserRoles(userId: number): Promise<number[]> {
-    const userRoles = await this.prisma.userRole.findMany({
-      where: { userId },
-    });
+    const userRoles = await this.prisma.userRole.findMany({ where: { userId } });
     return userRoles.map((ur) => ur.roleId);
   }
 

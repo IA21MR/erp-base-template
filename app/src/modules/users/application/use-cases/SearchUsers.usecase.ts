@@ -48,7 +48,7 @@ export class SearchUsersUseCase {
       command.roleId,
       page,
       perPage,
-      command.organizationId,
+      command.tenantId,
     );
 
     // Batch: obtener todos los roleIds únicos

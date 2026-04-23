@@ -76,22 +76,16 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 409, description: 'Email duplicado' })
   async createUser(@Body() body: CreateUserRequestDto, @Request() req: any) {
-    // El `organizationId` se deriva del JWT del administrador autenticado.
-    // Esto garantiza que un usuario NO pueda crear usuarios en otra organización.
-    const organizationId: string | null = req.user?.organizationId ?? null;
-    if (!organizationId) {
-      // Se lanza 400 — el DomainExceptionFilter mapea InvalidUserDataException.
-      throw new InvalidUserDataException(
-        'El token no contiene una organización activa',
-      );
-    }
+    // El `tenantId` se deriva del JWT (lo provee el módulo `organizations`
+    // cuando está activo). En proyectos core-only será `null` y se acepta.
+    const tenantId: string | null = req.user?.organizationId ?? null;
 
     const command = new CreateUserCommand(
       body.name,
       body.email,
       body.password,
       body.roleIds,
-      organizationId,
+      tenantId,
     );
 
     // Obtener el ID del usuario autenticado desde req.user (viene del JWT)
@@ -103,7 +97,7 @@ export class UsersController {
       message: 'Usuario creado exitosamente',
       data: {
         id: user.id,
-        organizationId: user.organizationId.value,
+        organizationId: user.tenantId?.value ?? null,
         name: user.name,
         email: user.email.value,
         active: user.active,
@@ -125,9 +119,9 @@ export class UsersController {
   async listUsers(@Query() query: any, @Request() req: any) {
     const page = query.page ? parseInt(query.page) : 1;
     const perPage = query.perPage ? parseInt(query.perPage) : 30;
-    const organizationId: string | undefined = req.user?.organizationId ?? undefined;
+    const tenantId: string | null = req.user?.organizationId ?? null;
 
-    const result = await this.listUsersUseCase.execute({ page, perPage, organizationId });
+    const result = await this.listUsersUseCase.execute({ page, perPage, tenantId });
 
     return {
       message: 'Usuarios obtenidos exitosamente',
@@ -159,14 +153,14 @@ export class UsersController {
   @ApiQuery({ name: 'perPage', required: false, enum: [30, 50, 100], example: 30 })
   @ApiResponse({ status: 200, description: 'Resultados de búsqueda paginados' })
   async searchUsers(@Query() query: SearchUsersQueryDto, @Request() req: any) {
-    const organizationId: string | undefined = req.user?.organizationId ?? undefined;
+    const tenantId: string | null = req.user?.organizationId ?? null;
     const command = new SearchUsersCommand(
       query.query,
       query.active,
       query.roleId,
       query.page,
       query.perPage,
-      organizationId,
+      tenantId,
     );
 
     const result = await this.searchUsersUseCase.execute(command);

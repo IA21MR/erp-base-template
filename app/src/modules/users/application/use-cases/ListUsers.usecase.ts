@@ -20,7 +20,7 @@ export interface UserWithRoles {
 export interface ListUsersCommand {
   page: number;
   perPage: number;
-  organizationId?: string; // Filtro multi-tenant
+  tenantId?: string | null; // Filtro multi-tenant
 }
 
 export interface ListUsersResult {
@@ -50,7 +50,7 @@ export class ListUsersUseCase {
     const result = await this.userRepository.listPaginated(
       page,
       perPage,
-      command.organizationId,
+      command.tenantId,
     );
 
     // Obtener todos los roleIds únicos de los usuarios

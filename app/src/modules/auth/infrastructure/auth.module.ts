@@ -49,7 +49,6 @@ import { TokenCleanupTask } from './tasks/TokenCleanupTask';
 
 // Módulo de persistencia de Users (reutiliza repos en lugar de re-registrarlos)
 import { UsersPersistenceModule } from '../../users/infrastructure/persistence/Users.Persistence.Module';
-import { OrganizationsPersistenceModule } from '../../organizations/infrastructure/persistence/Organizations.Persistence.Module';
 import { USER_REPOSITORY, ROLE_REPOSITORY, PERMISSION_REPOSITORY } from '../../users/Users.Tokens';
 
 // Tokens de inyección de dependencias del módulo Auth
@@ -70,7 +69,6 @@ import {
     ConfigModule,
     ScheduleModule.forRoot(),
     UsersPersistenceModule,
-    OrganizationsPersistenceModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

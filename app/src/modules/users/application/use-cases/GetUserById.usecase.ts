@@ -29,7 +29,7 @@ export class GetUserByIdUseCase {
     private readonly roleRepository: RoleRepository
   ) {}
 
-  async execute(userId: number, callerOrganizationId?: string): Promise<UserDetailWithRoles> {
+  async execute(userId: number, callerTenantId?: string | null): Promise<UserDetailWithRoles> {
     // Validar que el ID sea válido
     if (!userId || userId <= 0) {
       throw new InvalidUserDataException('ID de usuario inválido');
@@ -41,8 +41,8 @@ export class GetUserByIdUseCase {
       throw new UserNotFoundException(userId);
     }
 
-    // Guardia multi-tenant: evita leak de existencia cross-org.
-    if (callerOrganizationId && !user.belongsToOrganization(callerOrganizationId)) {
+    // Guardia multi-tenant: evita leak de existencia cross-tenant.
+    if (callerTenantId && !user.belongsToTenant(callerTenantId)) {
       throw new UserNotFoundException(userId);
     }
 

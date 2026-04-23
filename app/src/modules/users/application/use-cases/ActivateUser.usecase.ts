@@ -17,7 +17,7 @@ export class ActivateUserUseCase {
   async execute(
     userId: number,
     activatedBy: number,
-    callerOrganizationId?: string,
+    callerTenantId?: string | null,
   ): Promise<User> {
     // Buscar usuario
     const user = await this.userRepository.findById(userId);
@@ -26,7 +26,7 @@ export class ActivateUserUseCase {
     }
 
     // Guardia multi-tenant
-    if (callerOrganizationId && !user.belongsToOrganization(callerOrganizationId)) {
+    if (callerTenantId && !user.belongsToTenant(callerTenantId)) {
       throw new UserNotFoundException(userId);
     }
 

@@ -4,17 +4,16 @@
  * Responsabilidad: Configurar inyección de dependencias para el módulo de usuarios
  * siguiendo arquitectura hexagonal (Domain-Driven Design).
  *
- * Estructura:
- * - Persistence: Repositorios con Prisma
- * - Use Cases: Lógica de aplicación
- * - Controllers: Endpoints HTTP
+ * Multi-tenant: este módulo es CORE y NO depende de `organizations`. El concepto
+ * de tenant se maneja vía la abstracción `TenantContext` (shared/domain/tenant).
+ * El módulo `organizations`, cuando está activo, es solo un *provider* del
+ * contexto de tenant (vía middleware/guard).
  */
 
 import { Module } from '@nestjs/common';
 
 // Infrastructure
 import { UsersPersistenceModule } from './infrastructure/persistence/Users.Persistence.Module';
-import { OrganizationsPersistenceModule } from '../organizations/infrastructure/persistence/Organizations.Persistence.Module';
 import { PermissionsGuard } from '../../shared/infrastructure/guards/PermissionsGuard';
 
 // Use Cases
@@ -39,7 +38,7 @@ import { RolesController } from './interfaces/http/controllers/roles.controller'
 import { PermissionsController } from './interfaces/http/controllers/permissions.controller';
 
 @Module({
-  imports: [UsersPersistenceModule, OrganizationsPersistenceModule],
+  imports: [UsersPersistenceModule],
   controllers: [UsersController, RolesController, PermissionsController],
   providers: [
     // Use Cases - Users
