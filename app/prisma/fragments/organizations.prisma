@@ -1,0 +1,135 @@
+// ============================================================================
+// Fragmento del módulo `organizations` (opcional).
+// Activa soporte multi-tenant: cada User queda asociado a una Organization
+// y el Plugin Engine permite habilitar módulos por organización.
+// ============================================================================
+
+model Organization {
+  id              String   @id @db.Uuid
+  legalName       String   @map("legal_name") @db.VarChar(150)
+  tradeName       String?  @map("trade_name") @db.VarChar(150)
+  taxId           String?  @map("tax_id") @db.VarChar(30)
+  countryCode     String   @map("country_code") @db.VarChar(2)
+  email           String?  @db.VarChar(255)
+  phone           String?  @db.VarChar(30)
+  website         String?  @db.VarChar(500)
+  active          Boolean  @default(true)
+  isPrimary       Boolean  @default(false) @map("is_primary")
+  createdByUserId Int      @map("created_by_user_id")
+  updatedByUserId Int      @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  addresses OrganizationAddress[]
+  settings  OrganizationSettings?
+  modules   OrganizationModule[]
+  users     User[]
+  // #gen-if(contacts)
+  contacts  Contact[]
+  // #gen-endif
+
+  @@unique([taxId, countryCode])
+  @@index([active])
+  @@index([isPrimary])
+  @@map("organization")
+}
+
+model OrganizationModule {
+  id             String       @id @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  moduleName     String       @map("module_name") @db.VarChar(100)
+  enabled        Boolean      @default(true)
+  enabledAt      DateTime     @default(now()) @map("enabled_at")
+  disabledAt     DateTime?    @map("disabled_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, moduleName])
+  @@index([organizationId])
+  @@index([moduleName])
+  @@map("organization_module")
+}
+
+model OrganizationAddress {
+  id             String       @id @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  street         String       @db.VarChar(255)
+  city           String       @db.VarChar(100)
+  region         String?      @db.VarChar(100)
+  postalCode     String?      @map("postal_code") @db.VarChar(20)
+  countryCode    String       @map("country_code") @db.VarChar(2)
+  label          String?      @db.VarChar(50)
+  isPrimary      Boolean      @default(false) @map("is_primary")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_address")
+}
+
+model OrganizationSettings {
+  organizationId String                            @id @map("organization_id") @db.Uuid
+  createdAt      DateTime                          @default(now()) @map("created_at")
+  updatedAt      DateTime                          @updatedAt @map("updated_at")
+
+  organization   Organization                      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  regional       OrganizationRegionalSettings?
+  fiscal         OrganizationFiscalSettings?
+  notifications  OrganizationNotificationSettings?
+  branding       OrganizationBrandingSettings?
+
+  @@map("organization_settings")
+}
+
+model OrganizationRegionalSettings {
+  organizationId String               @id @map("organization_id") @db.Uuid
+  timezone       String               @db.VarChar(60)
+  locale         String               @db.VarChar(10)
+  currency       String               @db.VarChar(3)
+  dateFormat     String               @default("DD/MM/YYYY") @map("date_format") @db.VarChar(20)
+  numberFormat   String               @default("1.234,56") @map("number_format") @db.VarChar(20)
+  weekStart      Int                  @default(1) @map("week_start")
+  timeFormat     String               @default("HH:mm") @map("time_format") @db.VarChar(20)
+
+  settings       OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_regional_settings")
+}
+
+model OrganizationFiscalSettings {
+  organizationId       String               @id @map("organization_id") @db.Uuid
+  fiscalYearStartMonth Int                  @default(1) @map("fiscal_year_start_month")
+  taxRegime            String?              @map("tax_regime") @db.VarChar(100)
+  economicActivity     String?              @map("economic_activity") @db.VarChar(200)
+  notes                String?
+
+  settings             OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_fiscal_settings")
+}
+
+model OrganizationNotificationSettings {
+  organizationId String               @id @map("organization_id") @db.Uuid
+  emailFromName  String?              @map("email_from_name") @db.VarChar(100)
+  emailReplyTo   String?              @map("email_reply_to") @db.VarChar(255)
+  enableEmail    Boolean              @default(true) @map("enable_email")
+  smsEnabled     Boolean              @default(false) @map("sms_enabled")
+
+  settings       OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_notification_settings")
+}
+
+model OrganizationBrandingSettings {
+  organizationId String               @id @map("organization_id") @db.Uuid
+  primaryColor   String?              @map("primary_color") @db.VarChar(20)
+  secondaryColor String?              @map("secondary_color") @db.VarChar(20)
+  logoUrl        String?              @map("logo_url") @db.VarChar(500)
+  faviconUrl     String?              @map("favicon_url") @db.VarChar(500)
+
+  settings       OrganizationSettings @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@map("organization_branding_settings")
+}

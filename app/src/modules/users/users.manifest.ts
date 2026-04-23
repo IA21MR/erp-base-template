@@ -21,6 +21,6 @@ export const UsersManifest: ModuleManifest = {
     'MANAGE_ROLES',
     'MANAGE_PERMISSIONS',
   ],
-  prismaFragments: [],
-  seedScripts: [],
+  prismaFragments: ['prisma/fragments/base.prisma'],
+  seedScripts: ['prisma/seeds/core.seed.mjs'],
 };

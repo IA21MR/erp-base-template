@@ -16,5 +16,9 @@
  *   export const ACTIVE_MODULES = ['organizations', 'contacts'] as const;
  */
 export const ACTIVE_MODULES: ReadonlyArray<string> = [
-  // Template base: solo core (auth + users). Los opcionales se añaden al generar.
+  // Template base: todos los módulos opcionales activos para que compile y
+  // los tests pasen. El generador de proyectos reescribe esta lista al
+  // clonar el template para un cliente concreto.
+  'organizations',
+  'contacts',
 ];

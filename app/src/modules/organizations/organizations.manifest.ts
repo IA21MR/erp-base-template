@@ -18,6 +18,6 @@ export const OrganizationsManifest: ModuleManifest = {
     'LIST_ORGANIZATIONS',
     'MANAGE_ORGANIZATION_MODULES',
   ],
-  prismaFragments: [],
-  seedScripts: [],
+  prismaFragments: ['prisma/fragments/organizations.prisma'],
+  seedScripts: ['prisma/seeds/organizations.seed.mjs'],
 };

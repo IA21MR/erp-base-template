@@ -1,0 +1,130 @@
+// ============================================================================
+// Fragmento base de Prisma (módulos core: auth + users).
+// Modelos siempre presentes en CUALQUIER proyecto generado.
+//
+// Directivas de preprocesamiento (ver prisma/build-schema.mjs):
+//   // #gen-if(nombre)   → línea(s) solo se incluyen si el módulo está activo
+//   // #gen-endif
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Usuarios, Roles, Permisos (core) --------------------------------------
+
+model User {
+  id                  Int                 @id @default(autoincrement())
+  // #gen-if(organizations)
+  organizationId      String              @map("organization_id") @db.Uuid
+  // #gen-endif
+  name                String              @db.VarChar(100)
+  email               String              @unique @db.VarChar(150)
+  passwordHash        String              @map("password_hash") @db.VarChar(255)
+  active              Boolean             @default(true)
+  failedLoginAttempts Int                 @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?           @map("locked_until")
+  // #gen-if(organizations)
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  // #gen-endif
+  passwordResetCodes  PasswordResetCode[]
+  refreshTokens       RefreshToken[]
+  userRoles           UserRole[]
+
+  // #gen-if(organizations)
+  @@index([organizationId])
+  // #gen-endif
+  @@map("user")
+}
+
+model Role {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique @db.VarChar(50)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("role")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  code            String           @unique @db.VarChar(100)
+  description     String?          @db.VarChar(255)
+  rolePermissions RolePermission[]
+
+  @@map("permission")
+}
+
+model UserRole {
+  userId Int  @map("user_id")
+  roleId Int  @map("role_id")
+  role   Role @relation(fields: [roleId], references: [id])
+  user   User @relation(fields: [userId], references: [id])
+
+  @@id([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_role")
+}
+
+model RolePermission {
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permission")
+}
+
+model PasswordResetCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  code      String   @db.VarChar(6)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, code])
+  @@map("password_reset_code")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_token")
+}
+
+// ---- Outbox Pattern para Domain Events (core) ------------------------------
+
+model OutboxEvent {
+  id            String    @id @db.Uuid
+  aggregateId   String    @map("aggregate_id")
+  aggregateType String    @map("aggregate_type") @db.VarChar(100)
+  eventType     String    @map("event_type") @db.VarChar(150)
+  eventVersion  Int       @default(1) @map("event_version")
+  payload       Json
+  occurredAt    DateTime  @default(now()) @map("occurred_at")
+  processedAt   DateTime? @map("processed_at")
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+
+  @@index([processedAt, occurredAt])
+  @@index([aggregateId, aggregateType])
+  @@map("outbox_event")
+}

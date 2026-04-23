@@ -1,0 +1,114 @@
+// ============================================================================
+// Fragmento del módulo `contacts` (opcional).
+// Requiere `organizations` (Contact.organizationId → Organization).
+// ============================================================================
+
+enum ContactTypeEnum {
+  PERSON
+  COMPANY
+
+  @@map("contact_type")
+}
+
+model ContactRoleType {
+  id       String        @id @db.Uuid
+  code     String        @unique @db.VarChar(50)
+  label    String        @db.VarChar(100)
+  isSystem Boolean       @default(false) @map("is_system")
+
+  roles    ContactRole[]
+
+  @@map("contact_role_type")
+}
+
+model Contact {
+  id               String          @id @db.Uuid
+  organizationId   String          @map("organization_id") @db.Uuid
+  type             ContactTypeEnum
+  personFirstName  String?         @map("person_first_name") @db.VarChar(100)
+  personLastName   String?         @map("person_last_name") @db.VarChar(100)
+  companyLegalName String?         @map("company_legal_name") @db.VarChar(150)
+  companyTradeName String?         @map("company_trade_name") @db.VarChar(150)
+  taxId            String?         @map("tax_id") @db.VarChar(30)
+  countryCode      String?         @map("country_code") @db.VarChar(2)
+  notes            String?
+  userId           Int?            @map("user_id")
+  active           Boolean         @default(true)
+  createdByUserId  Int             @map("created_by_user_id")
+  updatedByUserId  Int             @map("updated_by_user_id")
+  assignedToUserId Int?            @map("assigned_to_user_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  roles            ContactRole[]
+  emails           ContactEmail[]
+  phones           ContactPhone[]
+  addresses        ContactAddress[]
+
+  @@unique([organizationId, countryCode, taxId])
+  @@index([organizationId, type, active])
+  @@index([assignedToUserId])
+  @@index([createdByUserId])
+  @@map("contact")
+}
+
+model ContactRole {
+  id         String          @id @db.Uuid
+  contactId  String          @map("contact_id") @db.Uuid
+  roleTypeId String          @map("role_type_id") @db.Uuid
+  since      DateTime?       @db.Date
+  until      DateTime?       @db.Date
+
+  contact    Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  roleType   ContactRoleType @relation(fields: [roleTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([contactId, roleTypeId])
+  @@index([contactId])
+  @@index([roleTypeId])
+  @@map("contact_role")
+}
+
+model ContactEmail {
+  id        String  @id @db.Uuid
+  contactId String  @map("contact_id") @db.Uuid
+  email     String  @db.VarChar(255)
+  label     String? @db.VarChar(50)
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([email])
+  @@map("contact_email")
+}
+
+model ContactPhone {
+  id        String  @id @db.Uuid
+  contactId String  @map("contact_id") @db.Uuid
+  phone     String  @db.VarChar(30)
+  label     String? @db.VarChar(50)
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("contact_phone")
+}
+
+model ContactAddress {
+  id          String  @id @db.Uuid
+  contactId   String  @map("contact_id") @db.Uuid
+  street      String  @db.VarChar(255)
+  city        String  @db.VarChar(100)
+  region      String? @db.VarChar(100)
+  postalCode  String? @map("postal_code") @db.VarChar(20)
+  countryCode String  @map("country_code") @db.VarChar(2)
+  label       String? @db.VarChar(50)
+  isPrimary   Boolean @default(false) @map("is_primary")
+
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("contact_address")
+}

@@ -8,7 +8,7 @@ export const ContactsManifest: ModuleManifest = {
   version: '1.0.0',
   isCore: false,
   module: ContactsModule,
-  dependencies: ['users'],
+  dependencies: ['users', 'organizations'],
   permissions: [
     'CREATE_CONTACT',
     'READ_CONTACT',
@@ -20,6 +20,6 @@ export const ContactsManifest: ModuleManifest = {
     'VIEW_CONTACT_ROLE_TYPES',
     'ASSIGN_CONTACT',
   ],
-  prismaFragments: [],
-  seedScripts: [],
+  prismaFragments: ['prisma/fragments/contacts.prisma'],
+  seedScripts: ['prisma/seeds/contacts.seed.mjs'],
 };

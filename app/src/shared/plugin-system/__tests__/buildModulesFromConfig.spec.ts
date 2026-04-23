@@ -16,19 +16,21 @@ describe('buildModulesFromConfig', () => {
     expect(names).not.toContain('organizations');
   });
 
-  it('debería resolver dependencias transitivas (contacts -> users)', () => {
+  it('debería resolver dependencias transitivas (contacts -> organizations -> users)', () => {
     const active = resolveActiveManifests(['contacts']);
     const names = active.map((m) => m.name);
     expect(names).toContain('contacts');
-    expect(names).toContain('users'); // dep declarada
-    // `users` debe aparecer antes que `contacts`.
-    expect(names.indexOf('users')).toBeLessThan(names.indexOf('contacts'));
+    expect(names).toContain('organizations');
+    expect(names).toContain('users');
+    expect(names.indexOf('users')).toBeLessThan(names.indexOf('organizations'));
+    expect(names.indexOf('organizations')).toBeLessThan(names.indexOf('contacts'));
   });
 
-  it('debería permitir activar solo un opcional sin el otro', () => {
-    const active = resolveActiveManifests(['contacts']);
+  it('debería permitir activar organizations sin contacts', () => {
+    const active = resolveActiveManifests(['organizations']);
     const names = active.map((m) => m.name);
-    expect(names).not.toContain('organizations');
+    expect(names).toContain('organizations');
+    expect(names).not.toContain('contacts');
   });
 
   it('buildModulesFromConfig debería devolver clases NestJS', () => {
