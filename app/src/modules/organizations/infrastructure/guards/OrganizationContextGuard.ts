@@ -26,7 +26,7 @@
  */
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '../../../modules/auth/infrastructure/security/decorators/Public.decorator';
+import { IS_PUBLIC_KEY } from '../../../auth/infrastructure/security/decorators/Public.decorator';
 
 @Injectable()
 export class OrganizationContextGuard implements CanActivate {

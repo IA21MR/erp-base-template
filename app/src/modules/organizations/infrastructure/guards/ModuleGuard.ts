@@ -25,9 +25,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { OrganizationModuleService } from '../../plugin-system/application/OrganizationModuleService';
-import { PluginRegistry } from '../../plugin-system/application/PluginRegistry';
-import { MODULE_ACCESS_KEY } from '../decorators/module-access.decorator';
+import { OrganizationModuleService } from '../../../../shared/plugin-system/application/OrganizationModuleService';
+import { PluginRegistry } from '../../../../shared/plugin-system/application/PluginRegistry';
+import { MODULE_ACCESS_KEY } from '../../../../shared/infrastructure/decorators/module-access.decorator';
 
 @Injectable()
 export class ModuleGuard implements CanActivate {

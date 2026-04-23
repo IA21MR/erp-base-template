@@ -1,7 +1,7 @@
 // Módulo de Autenticación para NestJS
 // Configura JWT, Passport y casos de uso de auth
 
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -14,11 +14,6 @@ import { JwtStrategy } from './security/strategies/JwtStrategy';
 
 // Guards globales (cadena CORE de seguridad)
 import { JwtAuthGuard } from './security/guards/JwtAuthGuard';
-import { OrganizationContextGuard } from '../../../shared/infrastructure/guards/OrganizationContextGuard';
-import { ModuleGuard } from '../../../shared/infrastructure/guards/ModuleGuard';
-
-// Middleware multi-tenant
-import { OrganizationContextMiddleware } from '../../../shared/infrastructure/http/OrganizationContextMiddleware';
 
 // Controlador
 import { AuthController } from '../interfaces/http/controllers/auth.controller';
@@ -254,32 +249,13 @@ import {
     // =====================================================================
     // Cadena CORE de guards globales (APP_GUARD).
     //
-    // El orden de ejecución sigue el orden de registro:
-    //   1. JwtAuthGuard           → autentica (respeta @Public).
-    //   2. OrganizationContextGuard → materializa request.organization.id
-    //                                desde request.user.organizationId.
-    //   3. ModuleGuard            → valida módulo habilitado por org
-    //                                (respeta @ModuleAccess).
-    //
-    // `PermissionsGuard` sigue a nivel de controlador porque se activa
-    // únicamente con `@RequirePermissions(...)`.
+    // Solo JwtAuthGuard es CORE. Los guards tenant-aware (OrganizationContextGuard,
+    // ModuleGuard) pertenecen a OrganizationsModule (Fase 0.4.1) y solo se
+    // activan cuando ese módulo está presente.
     // =====================================================================
     JwtAuthGuard,
-    OrganizationContextGuard,
-    OrganizationContextMiddleware,
     { provide: APP_GUARD, useExisting: JwtAuthGuard },
-    { provide: APP_GUARD, useExisting: OrganizationContextGuard },
-    { provide: APP_GUARD, useExisting: ModuleGuard },
   ],
   exports: [JwtStrategy, JwtModule],
 })
-export class AuthModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    // Middleware global que pre-calcula `request.organization` a partir del
-    // JWT (verificando su firma) antes de que los guards se ejecuten.
-    // También aplica el fallback por header cuando
-    // `ALLOW_ORGANIZATION_HEADER_FALLBACK=true` y el request no está
-    // autenticado.
-    consumer.apply(OrganizationContextMiddleware).forRoutes('*');
-  }
-}
+export class AuthModule {}
